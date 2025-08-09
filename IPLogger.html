@@ -6,42 +6,54 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
-<h3>Logging your IP...</h3>
+<h3>Logging your IP and location...</h3>
 <script>
-  // Your Firebase config here:
-const firebaseConfig = {
-  apiKey: "AIzaSyBmeCiF-qqHkaM81Jq-whaxvz4zJ6Ni3R0",
-  authDomain: "yachad-32fe3.firebaseapp.com",
-  databaseURL: "https://yachad-32fe3-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "yachad-32fe3",
-  storageBucket: "yachad-32fe3.firebasestorage.app",
-  messagingSenderId: "720032034735",
-  appId: "1:720032034735:web:cabedda1dc842420bbc95a",
-  measurementId: "G-YH1NK3RHY3"
-};
+  const firebaseConfig = {
+    apiKey: "AIzaSyBmeCiF-qqHkaM81Jq-whaxvz4zJ6Ni3R0",
+    authDomain: "yachad-32fe3.firebaseapp.com",
+    databaseURL: "https://yachad-32fe3-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "yachad-32fe3",
+    storageBucket: "yachad-32fe3.firebasestorage.app",
+    messagingSenderId: "720032034735",
+    appId: "1:720032034735:web:cabedda1dc842420bbc95a",
+    measurementId: "G-YH1NK3RHY3"
+  };
 
   // Initialize Firebase
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
-  // Fetch public IP from ipify
-  fetch('https://api.ipify.org?format=json')
+  // Fetch IP and location info from ipinfo.io
+  fetch('https://ipinfo.io/json?token=') // no token needed for basic usage, or add your token if you have one
     .then(response => response.json())
     .then(data => {
-      const ip = data.ip;
+      const ip = data.ip || "unknown";
       const ua = navigator.userAgent;
       const time = new Date().toISOString();
 
-      // Save to Firestore collection 'ipLogs'
+      // 'loc' field is "latitude,longitude"
+      let lat = null, lon = null;
+      if (data.loc) {
+        const parts = data.loc.split(',');
+        lat = parseFloat(parts[0]);
+        lon = parseFloat(parts[1]);
+      }
+
+      // Save to Firestore
       db.collection('ipLogs').add({
         ip: ip,
         userAgent: ua,
-        timestamp: time
+        timestamp: time,
+        latitude: lat,
+        longitude: lon
       }).then(() => {
-        document.body.innerHTML = "<p>Your IP has been logged. Thanks!</p>";
+        document.body.innerHTML = "<p>Your IP and location have been logged. Thanks!</p>";
       }).catch(err => {
-        document.body.innerHTML = "<p>Error logging IP: " + err + "</p>";
+        document.body.innerHTML = "<p>Error logging IP/location: " + err + "</p>";
       });
+    })
+    .catch(err => {
+      document.body.innerHTML = "<p>Failed to fetch IP/location info: " + err + "</p>";
     });
 </script>
 </body>

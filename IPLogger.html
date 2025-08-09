@@ -11,9 +11,8 @@
   const firebaseConfig = {
     apiKey: "AIzaSyBmeCiF-qqHkaM81Jq-whaxvz4zJ6Ni3R0",
     authDomain: "yachad-32fe3.firebaseapp.com",
-    databaseURL: "https://yachad-32fe3-default-rtdb.europe-west1.firebasedatabase.app",
     projectId: "yachad-32fe3",
-    storageBucket: "yachad-32fe3.firebasestorage.app",
+    storageBucket: "yachad-32fe3.appspot.com",
     messagingSenderId: "720032034735",
     appId: "1:720032034735:web:cabedda1dc842420bbc95a",
     measurementId: "G-YH1NK3RHY3"
@@ -26,8 +25,16 @@
   function fetchLocation(url, parser) {
     return fetch(url)
       .then(res => res.json())
-      .then(parser)
-      .catch(() => null); // ignore errors
+      .then(data => {
+        console.log("Raw data from", url, data);
+        const parsed = parser(data);
+        console.log("Parsed data:", parsed);
+        return parsed;
+      })
+      .catch(err => {
+        console.error("Error fetching from", url, err);
+        return null;
+      });
   }
 
   // Parse ip-api.com response
@@ -53,7 +60,6 @@
     fetchLocation('https://ip-api.com/json/', parseIpApi),
     fetchLocation('https://ipwho.is/', parseIpWhoIs)
   ]).then(results => {
-    // Filter out null results
     const validResults = results.filter(r => r !== null);
 
     if (validResults.length === 0) {
@@ -61,10 +67,8 @@
       return;
     }
 
-    // Pick the first IP (usually same), and average lat/lon if multiple
-    const ip = validResults[0].ip || "unknown";
+    const ip = validResults.find(r => r.ip) ? validResults.find(r => r.ip).ip : "unknown";
 
-    // Average lat/lon
     let latSum = 0, lonSum = 0, count = 0;
     validResults.forEach(r => {
       if (r.lat !== null && r.lon !== null) {
@@ -79,7 +83,8 @@
     const ua = navigator.userAgent;
     const time = new Date().toISOString();
 
-    // Save to Firestore
+    console.log("Saving to Firestore:", {ip, userAgent: ua, timestamp: time, latitude: avgLat, longitude: avgLon});
+
     db.collection('ipLogs').add({
       ip: ip,
       userAgent: ua,

